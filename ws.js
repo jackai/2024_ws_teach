@@ -2,10 +2,12 @@
 const express = require('express')
 const SocketServer = require('ws').Server
 const jwt = require('jsonwebtoken')
+const axios = require('axios')
 
 //指定開啟的 port
-const PORT = 3000
+const PORT = 3001
 const JWT_KEY = 'testjwt';
+const API_HOST = 'http://localhost:3000'
 
 const verifyToken = async (token,key) => {
     if(!token) return {};
@@ -89,11 +91,29 @@ wss.on('connection', ws => {
                     break;
 
                 case 'message':
-                    sentToAll({
-                        user_id: clients[id].user_id,
-                        user_name: clients[id].user_name,
-                        message: parse.message,
-                    });
+                    try {
+                        const response = await axios.post(API_HOST + '/message/', {
+                            user_id: clients[id].user_id,
+                            message: parse.message,
+                        });
+
+                        if (!response.data.status) {
+                            throw new Error('api error' + response.data.message);
+                        }
+
+                        sentToAll({
+                            user_id: clients[id].user_id,
+                            user_name: clients[id].user_name,
+                            message: parse.message,
+                        });
+                    } catch (e) {
+                        console.log(e.message);
+                        ws.send(JSON.stringify({
+                            status: 'error',
+                            route: 'message',
+                            message: 'server error'
+                        }));
+                    }
                     break;
 
                 default:
