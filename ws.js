@@ -14,6 +14,20 @@ const verifyToken = async (token,key) => {
     );
 }
 
+const sentToAll = ({user_id, user_name, message}) => {
+    Object.values(clients).forEach(client => {
+        client.ws.send(JSON.stringify({
+            status: 'success',
+            route: 'message',
+            data: {
+                user_id,
+                user_name,
+                message,
+            }
+        }));
+    });
+}
+
 //創建 express 的物件，並綁定及監聽 3000 port ，且設定開啟後在 console 中提示
 const server = express()
     .listen(PORT, () => console.log(`Listening on ${PORT}`))
@@ -58,6 +72,12 @@ wss.on('connection', ws => {
                             route: 'auth',
                             message: 'login success'
                         }));
+
+                        sentToAll({
+                            user_id: clients[id].user_id,
+                            user_name: clients[id].user_name,
+                            message: '上線了',
+                        });
                     } else {
                         ws.send(JSON.stringify({
                             status: 'error',
@@ -69,16 +89,10 @@ wss.on('connection', ws => {
                     break;
 
                 case 'message':
-                    Object.values(clients).forEach(client => {
-                        client.ws.send(JSON.stringify({
-                            status: 'success',
-                            route: 'message',
-                            data: {
-                                user_id: clients[id].user_id,
-                                user_name: clients[id].user_name,
-                                message: parse.message,
-                            }
-                        }));
+                    sentToAll({
+                        user_id: clients[id].user_id,
+                        user_name: clients[id].user_name,
+                        message: parse.message,
                     });
                     break;
 
@@ -94,6 +108,12 @@ wss.on('connection', ws => {
 
     //當 WebSocket 的連線關閉時執行
     ws.on('close', () => {
+        sentToAll({
+            user_id: clients[id].user_id,
+            user_name: clients[id].user_name,
+            message: '已離線',
+        });
+
         delete clients[id];
         console.log('Close connected')
     })
